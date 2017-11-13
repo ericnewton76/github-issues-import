@@ -222,11 +222,13 @@ def send_request(which, url, post_data=None, method=None, accept=None):
 			error_details = json.loads(error_details.decode("utf-8"))
 
 			if error.code == 403:
-				print("Got 403 [%s], assuming rate limit error and waiting for 1 minute..." % error_details['message'])
+				print("Got 403 [%s], assuming rate limit error..." % error_details['message'])
+				
 				time.sleep(60)
 				retry = True
+
 			elif error.code in http_error_messages:
-				sys.exit(http_error_messages[error.code])
+				sys.exit(http_ersror_messages[error.code])
 			else:
 				error_message = "ERROR: There was a problem importing the issues.\n%s %s" % (error.code, error.reason)
 				if 'message' in error_details:
@@ -257,6 +259,8 @@ def get_issues_by_id(which, issue_ids):
 	issues = []
 	for issue_id in issue_ids:
 		issues.append(get_issue_by_id(which, int(issue_id)))
+		sys.stdout.write(".")
+
 	
 	return issues
 
@@ -272,7 +276,10 @@ def get_issues_by_state(which, state):
 		if import_pullrequests:
 			issues.extend(new_issues)
 		else:
+			orig = issues.len()
 			issues.extend(filter(lambda issue:'pull_request' not in issue ,new_issues))
+			new = issues.len()
+			sys.stdout.write("." * (new-orig))
 		page += 1
 	return issues
 
@@ -343,6 +350,7 @@ def import_issues_golden_comet(issues):
 	num_new_comments = 0
 	new_labels = []
 	
+	sys.stdout.write("Loading issues")
 	for issue in issues:
 		issue_migration = {}
 		new_issue = {}
@@ -411,9 +419,12 @@ def import_issues_golden_comet(issues):
 		issue_migration['comments'] = comments
 
 		issue_migrations.append(issue_migration)
+		
+		sys.stdout.write(".")
 
 	state.current = state.IMPORT_CONFIRMATION
 
+	print("")
 	print("You are about to add to '" + config.get('target', 'repository') + "':")
 	print(" *", len(issue_migrations), "new issues") 
 	print(" *", num_new_comments, "new comments") 
@@ -594,6 +605,8 @@ if __name__ == '__main__':
 	state.current = state.FETCHING_ISSUES
 	
 	# Argparser will prevent us from getting both issue ids and specifying issue state, so no duplicates will be added
+	
+	sys.stdout.write("Loading issues")
 	if (len(issue_ids) > 0):
 		issues += get_issues_by_id('source', issue_ids)
 	
@@ -602,6 +615,8 @@ if __name__ == '__main__':
 	
 	if config.getboolean('settings', 'import-closed-issues'):
 		issues += get_issues_by_state('source', 'closed')
+	
+	print("")
 	
 	# Sort issues based on their original `id` field
 	# Confusing, but taken from http://stackoverflow.com/a/2878123/617937
